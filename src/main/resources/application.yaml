@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: persons
+  profiles:
+    active: dev # Hier schaltest du zwischen 'dev' und 'prod' um
+  threads:
+    virtual:
+      enabled: true
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/persons_db
+    username: postgres
+    password: '2491' # Passwörter mit Zahlen am besten in Anführungszeichen
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+---
+# Entwicklungseinstellungen (Swagger AN)
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+---
+# Produktionseinstellungen (Swagger AUS)
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

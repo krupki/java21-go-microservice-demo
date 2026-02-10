@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      - 'POSTGRES_DB=persons_db'
+      - 'POSTGRES_PASSWORD=2491'
+      - 'POSTGRES_USER=postgres'
+    ports:
+      - '5432:5432'
+
+  go-sorter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - '8081:8081'
