@@ -2,7 +2,7 @@ spring:
   application:
     name: persons
   profiles:
-    active: dev # Hier schaltest du zwischen 'dev' und 'prod' um
+    active: dev
   threads:
     virtual:
       enabled: true
@@ -10,7 +10,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/persons_db
     username: postgres
-    password: '2491' # Passwörter mit Zahlen am besten in Anführungszeichen
+    password: '2491'
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -23,7 +23,6 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
 ---
-# Entwicklungseinstellungen (Swagger AN)
 spring:
   config:
     activate:
@@ -37,7 +36,6 @@ springdoc:
     enabled: true
 
 ---
-# Produktionseinstellungen (Swagger AUS)
 spring:
   config:
     activate:

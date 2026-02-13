@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package de.krupki.persons;
+
+option java_multiple_files = true;
+option java_package = "de.krupki.persons";
+
+option go_package = "./sortingpb";
+
+message PersonMsg {
+  int64 id = 1;
+  string name = 2;
+  int32 age = 3;
+}
+
+message SortRequest {
+  repeated PersonMsg persons = 1;
+}
+
+message SortResponse {
+  repeated PersonMsg persons = 1;
+}
+
+service PersonSorter {
+  rpc Sort(SortRequest) returns (SortResponse);
+}

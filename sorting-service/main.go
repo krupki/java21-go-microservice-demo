@@ -1,46 +1,52 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
+	"context"
+	"log"
+	"net"
 	"sort"
+	"sorting-service/sortingpb"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
-// Die Struktur muss exakt zum JSON aus deiner Java-App passen
-type Person struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	Age  int    `json:"age"`
+type server struct {
+	sortingpb.UnimplementedPersonSorterServer
 }
 
-func sortHandler(w http.ResponseWriter, r *http.Request) {
-	// Nur POST erlauben
-	if r.Method != http.MethodPost {
-		http.Error(w, "Nur POST ist erlaubt", http.StatusMethodNotAllowed)
-		return
-	}
+func (s *server) Sort(ctx context.Context, req *sortingpb.SortRequest) (*sortingpb.SortResponse, error) {
+	log.Printf("Receiving gRPC-Response: Sort %d persons", len(req.Persons))
 
-	var persons []Person
-	// JSON aus dem Request-Body in Slice dekodieren
-	err := json.NewDecoder(r.Body).Decode(&persons)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+	sortedPersons := make([]*sortingpb.PersonMsg, len(req.Persons))
+	copy(sortedPersons, req.Persons)
 
-	// Sortier-Logik: In-place Sortierung nach Alter
-	sort.Slice(persons, func(i, j int) bool {
-		return persons[i].Age < persons[j].Age
+	sort.Slice(sortedPersons, func(i, j int) bool {
+		return sortedPersons[i].Age < sortedPersons[j].Age
 	})
 
-	// Rückgabe als JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(persons)
+	log.Println("sorting completed successful.")
+
+	return &sortingpb.SortResponse{
+		Persons: sortedPersons,
+	}, nil
 }
 
 func main() {
-	http.HandleFunc("/sort", sortHandler)
-	fmt.Println("Go-Sorter läuft auf Port 8081...")
-	http.ListenAndServe(":8081", nil)
+	lis, err := net.Listen("tcp", "0.0.0.0:50051")
+	if err != nil {
+		log.Fatalf("cant open port 50051: %v", err)
+	}
+
+	s := grpc.NewServer()
+
+	sortingpb.RegisterPersonSorterServer(s, &server{})
+
+	reflection.Register(s)
+
+	log.Println("gRPC Service opened at port 50051...")
+
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("Error running server: %v", err)
+	}
 }

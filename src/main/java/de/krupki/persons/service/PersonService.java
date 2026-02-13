@@ -5,26 +5,30 @@ import de.krupki.persons.dto.PersonResponseDto;
 import de.krupki.persons.entity.Person;
 import de.krupki.persons.repository.PersonRepository;
 import org.springframework.stereotype.Service;
-import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.util.List;
+import de.krupki.persons.PersonSorterGrpc;
+import de.krupki.persons.SortRequest;
+import de.krupki.persons.SortResponse;
+import de.krupki.persons.PersonMsg;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 
 @Service
 public class PersonService {
 
     private final PersonRepository repository;
-    private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
+    private final PersonSorterGrpc.PersonSorterBlockingStub sortingStub;
 
     public PersonService(PersonRepository repository, ObjectMapper objectMapper) {
         this.repository = repository;
-        this.objectMapper = objectMapper;
-        this.httpClient = HttpClient.newBuilder().build();
+
+        ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 50051)
+                .usePlaintext()
+                .build();
+
+        this.sortingStub = PersonSorterGrpc.newBlockingStub(channel);
     }
 
     public PersonResponseDto createPerson(PersonCreateDto createDto) {
@@ -50,27 +54,30 @@ public class PersonService {
 
     public List<PersonResponseDto> getAllPersonsSorted() {
         try {
-            // objectliste organisieren
-            List<PersonResponseDto> persons = repository.findAll().stream().map(PersonResponseDto::fromEntity).toList();
-            // objectliste zu json umwandeln
-            String jsonPayload = objectMapper.writeValueAsString(persons);
-            // Request an Go
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://localhost:8081/sort"))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
+
+            // convert db info into grpc-message
+            List<PersonMsg> protoPersons = repository.findAll().stream()
+                    .map(p -> PersonMsg.newBuilder()
+                            .setId(p.getId())
+                            .setName(p.getName())
+                            .setAge(p.getAge())
+                            .build())
+                        .toList();
+
+            // build request
+            SortRequest request = SortRequest.newBuilder()
+                    .addAllPersons(protoPersons)
                     .build();
 
-            // Senden und Antwort empfangen
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            // init go service
+            SortResponse response = sortingStub.sort(request);
 
-            // sortiertes JSON wieder in Liste umwandeln
-            return objectMapper.readValue(response.body(), new TypeReference<List<PersonResponseDto>>() {
-            });
+            // map response to dto
+                   return response.getPersonsList().stream()
+                           .map(p -> new PersonResponseDto(p.getId(), p.getName(), p.getAge()))
+                           .toList();
         } catch (Exception e) {
-            // Fallback: Falls Go offline ist, gib die unsortierte Liste zurück
-            System.err.println("Go-Service Fehler: " + e.getMessage());
-            return repository.findAll().stream().map(PersonResponseDto::fromEntity).toList();
+            throw new RuntimeException(e);
         }
     }
 }
